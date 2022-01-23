@@ -3,10 +3,9 @@ from re import I
 
 import nonebot
 from nonebot import on_command, on_regex
-from nonebot.adapters.onebot.v11 import (GROUP, PRIVATE_FRIEND, Bot, Event,
-                                         Message, PrivateMessageEvent)
+from nonebot.adapters.cqhttp import Bot, Event, Message, PrivateMessageEvent
+from nonebot.adapters.cqhttp.permission import GROUP, PRIVATE_FRIEND
 from nonebot.log import logger
-from nonebot.params import State
 from nonebot.typing import T_State
 
 from .get_Data import get_setu
@@ -25,7 +24,7 @@ cdTime = (
 
 
 @setu.handle()
-async def _(bot: Bot, event: Event, state: T_State = State()):
+async def _(bot: Bot, event: Event, state: T_State):
     global mid
     args = list(state["_matched_groups"])
     r18 = args[1]
