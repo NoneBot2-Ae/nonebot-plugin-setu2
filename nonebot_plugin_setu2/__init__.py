@@ -24,7 +24,7 @@ setu = on_regex(
     permission=PRIVATE_FRIEND | GROUP,
 )
 
-cdTime = (config.setu_cd if config.setu_cd else 60)
+cdTime = (config.setu2_cd if config.setu2_cd else 60)
 
 if not config.proxies_socks5:
     logger.warning("未检测到代理, 请检查是否正常访问 i.pixiv.cat.")
@@ -33,7 +33,7 @@ if not config.proxies_socks5:
 @setu.handle()
 async def _(bot: Bot, event: Event, state: T_State = State()):
     if isinstance(event, GroupMessageEvent
-                  ) and event.group_id not in config.setu_enable_groups:
+                  ) and event.group_id not in config.setu2_enable_groups:
         return
     global mid
     args = list(state["_matched_groups"])
@@ -84,5 +84,5 @@ async def _(bot: Bot, event: Event, state: T_State = State()):
             seconds = time_last
         cd_msg = f"{str(hours) + '小时' if hours else ''}{str(minutes) + '分钟' if minutes else ''}{str(seconds) + '秒' if seconds else ''}"
 
-        await setu.send(f"{random.choice(setu_SendCD)} 你的CD还有{cd_msg}",
+        await setu.send(f"{random.choice(setu_send_cd)} 你的CD还有{cd_msg}",
                         at_sender=True)
