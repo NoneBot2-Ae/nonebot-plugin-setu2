@@ -1,29 +1,17 @@
 import base64
 from re import findall
 from sys import exc_info
+from nonebot.adapters.onebot.v11 import MessageSegment
 import httpx
 from httpx import AsyncClient
+from httpx_socks import AsyncProxyTransport
 from nonebot import logger
 from nonebot import get_driver
-from nonebot.log import logger
+from .config import Config
 
-proxies = get_driver().config.setu_porxy
-if proxies:
-    logger.info(f"使用自定代理 {proxies}")
-else:
-    proxies = None
+global_config = get_driver().config
+config: Config = Config.parse_obj(global_config.dict())
 
-save = get_driver().config.setu_save
-if save == "webdav":
-    from .save_to_WebDAV import save_img
-else:
-    from .save_to_Local import save_img
-
-reverse_proxy = get_driver().config.setu_reverse_proxy
-if reverse_proxy:
-    logger.info(f"使用自定反向代理 {reverse_proxy}")
-else:
-    reverse_proxy = "i.pixiv.re"
 error = "Error:"
 
 
@@ -44,8 +32,7 @@ async def get_setu(keyword="", r18=False) -> list:
         params = {
             "keyword": keyword,
             "r18": 1 if r18 else 0,
-            "size": "regular",
-            "proxy": reverse_proxy,
+            "size": "regular"
         }
         try:
             res = await client.get(req_url, params=params, timeout=120)
@@ -63,26 +50,14 @@ async def get_setu(keyword="", r18=False) -> list:
 
             base64 = convert_b64(content)
 
-            # 保存图片
-            try:
-                save_img(content, pid=setu_pid, p=p, r18=r18)
-            except:
-                logger.warning(f"{exc_info()[0]}, {exc_info()[1]}")
-
             if type(base64) == str:
                 pic = pic = "[CQ:image,file=base64://" + base64 + "]"
-                data = (
-                    "标题:"
-                    + setu_title
-                    + "\npid:"
-                    + str(setu_pid)
-                    + "\n画师:"
-                    + setu_author
-                )
+                data = ("标题:" + setu_title + "\npid:" + str(setu_pid) +
+                        "\n画师:" + setu_author)
             return [pic, data, True, setu_url]
         except httpx.ProxyError as e:
             logger.warning(e)
-            return [error, f"代理错误: {e} {exc_info()[0]}, {exc_info()[1]}", False]
+            return [error, f"代理错误: {e}", False]
         except IndexError as e:
             logger.warning(e)
             return [error, f"图库中没有搜到关于{keyword}的图。", False]
@@ -92,10 +67,13 @@ async def get_setu(keyword="", r18=False) -> list:
 
 
 async def down_pic(url):
-    async with AsyncClient(proxies=proxies) as client:
+    transport = AsyncProxyTransport.from_url(config.proxies_socks5)
+    async with AsyncClient(transport=transport) as client:
         headers = {
-            "Referer": "https://accounts.pixiv.net/login?lang=zh&source=pc&view_type=page&ref=wwwtop_accounts_index",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) "
+            "Referer":
+            "https://accounts.pixiv.net/login?lang=zh&source=pc&view_type=page&ref=wwwtop_accounts_index",
+            "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; WOW64) "
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36",
         }
         re = await client.get(url=url, headers=headers, timeout=120)

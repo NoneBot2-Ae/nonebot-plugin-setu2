@@ -2,30 +2,39 @@ import random
 from re import I
 
 import nonebot
-from nonebot import on_command, on_regex
-from nonebot.adapters.onebot.v11 import (GROUP, PRIVATE_FRIEND, Bot, Event,
-                                         Message, PrivateMessageEvent)
+from nonebot import on_command, on_regex, get_driver
+from nonebot.adapters.onebot.v11 import (Bot, Event, Message,
+                                         PrivateMessageEvent,
+                                         GroupMessageEvent)
+from nonebot.adapters.onebot.v11.permission import GROUP, PRIVATE_FRIEND
 from nonebot.log import logger
-from nonebot.params import State
 from nonebot.typing import T_State
+from nonebot.params import State
+from .get_data import get_setu
+from .setu_message import *
+from .json_manager import *
+from .config import Config
 
-from .get_Data import get_setu
-from .json_Manager import *
-from .setu_Message import *
+global_config = get_driver().config
+config: Config = Config.parse_obj(global_config.dict())
 
 setu = on_regex(
-    r"^(setu|色图|涩图|来点色色|色色)\s?(r18)?\s?(.*)?",
+    r"^(setu|来点色色)\s?(r18)?\s?(.*)?",
     flags=I,
     permission=PRIVATE_FRIEND | GROUP,
 )
-withdraw = on_command("撤回")
-cdTime = (
-    nonebot.get_driver().config.setu_cd if nonebot.get_driver().config.setu_cd else 60
-)
+
+cdTime = (config.setu_cd if config.setu_cd else 60)
+
+if not config.proxies_socks5:
+    logger.warning("未检测到代理, 请检查是否正常访问 i.pixiv.cat.")
 
 
 @setu.handle()
 async def _(bot: Bot, event: Event, state: T_State = State()):
+    if isinstance(event, GroupMessageEvent
+                  ) and event.group_id not in config.setu_enable_groups:
+        return
     global mid
     args = list(state["_matched_groups"])
     r18 = args[1]
@@ -42,18 +51,15 @@ async def _(bot: Bot, event: Event, state: T_State = State()):
 
     logger.info(f"key={key},r18={r18}")
 
-    if (
-        cd > cdTime
-        or event.get_user_id() in nonebot.get_driver().config.superusers
-        or isinstance(event, PrivateMessageEvent)
-    ):
+    if (cd > cdTime or event.get_user_id() in config.superusers
+            or isinstance(event, PrivateMessageEvent)):
         writeJson(qid, event.time, mid, data)
         pic = await get_setu(key, r18)
         if pic[2]:
             try:
                 await setu.send(message=Message(pic[0]))
                 await setu.send(
-                    message=f"{random.choice(setu_SendMessage)}\n" + Message(pic[1]),
+                    message=Message(pic[1]),
                     at_sender=True,
                 )
             except Exception as e:
@@ -75,7 +81,8 @@ async def _(bot: Bot, event: Event, state: T_State = State()):
             minutes, seconds = divmod(time_last, 60)
             hours, minutes = divmod(minutes, 60)
         else:
-            minutes = time_last
+            seconds = time_last
         cd_msg = f"{str(hours) + '小时' if hours else ''}{str(minutes) + '分钟' if minutes else ''}{str(seconds) + '秒' if seconds else ''}"
 
-        await setu.send(f"{random.choice(setu_SendCD)} 你的CD还有{cd_msg}", at_sender=True)
+        await setu.send(f"{random.choice(setu_SendCD)} 你的CD还有{cd_msg}",
+                        at_sender=True)
